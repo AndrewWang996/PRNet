@@ -27,8 +27,12 @@ class LandmarkDetector:
         )
 
         # uv file
-        # TODO: Convert to tensorflow
-        self.uv_kpt_ind = np.loadtxt(prefix + '/Data/uv-data/uv_kpt_ind.txt').astype(np.int32) # 2 x 68 get kpt
+        self.uv_kpt_ind = tf.convert_to_tensor(
+            np.transpose(
+                np.loadtxt(prefix + '/Data/uv-data/uv_kpt_ind.txt')
+            ), # 68 x 2 
+            dtype=tf.int32
+        )
 
     def restore(self, sess):
         prn_path = os.path.join(self.prefix, 'Data/net-data/256_256_resfcn256_weight')
@@ -46,7 +50,7 @@ class LandmarkDetector:
 
         # TODO: Implement without using tf.transpose
         pos = tf.transpose(pos, perm=[2,1,0,3]) # (256,256,?,3)
-        kpt = tf.gather_nd(pos, np.transpose(self.uv_kpt_ind))
+        kpt = tf.gather_nd(pos, self.uv_kpt_ind)
         kpt = tf.transpose(kpt, perm=[1,0,2]) # (?,68,3)
         return kpt
 
@@ -72,7 +76,6 @@ if __name__ == '__main__':
         detector.restore(sess)
         landmarks = detector.get_landmarks()
         L = np.asarray(sess.run(landmarks))
-        print(L.shape)
         for i in range(68):
             cv2.circle(img1, tuple(L[0,i,:2]), 2, (255,0,0), -1)
             cv2.circle(img2, tuple(L[1,i,:2]), 2, (255,0,0), -1)
