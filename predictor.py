@@ -74,7 +74,6 @@ class resfcn256(object):
     def vars(self):
         return [var for var in tf.global_variables() if self.name in var.name]
 
-
 class PosPrediction():
     def __init__(self, input_tensor=None, resolution_inp=256, resolution_op=160, gpu_memory_fraction=0.24): 
         # -- hyper settings
@@ -98,8 +97,11 @@ class PosPrediction():
             )
         self.x_op = float(resolution_op) / resolution_inp * self.network(self.x, is_training=False) 
 
-    def restore(self, sess, model_path):        
-        tf.train.Saver(self.network.vars).restore(sess, model_path)
+    def restore(self, sess, model_path, filter_vars=None):
+        v = self.network.vars
+        if not filter_vars is None:
+            v = list( set(v) - set(filter_vars) )
+        tf.train.Saver(v).restore(sess, model_path)
 
     def predict_batch(self):
         return self.x_op*self.MaxPos

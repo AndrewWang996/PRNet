@@ -3,6 +3,7 @@ import os
 from skimage.io import imread, imsave
 from skimage.transform import estimate_transform, warp
 from time import time
+import tensorflow as tf
 
 from predictor import PosPrediction
 
@@ -34,12 +35,12 @@ class LandmarkDetector:
             dtype=tf.int32
         )
 
-    def restore(self, sess):
+    def restore(self, sess, filter_vars=None):
         prn_path = os.path.join(self.prefix, 'Data/net-data/256_256_resfcn256_weight')
         if not os.path.isfile(prn_path + '.data-00000-of-00001'):
             print("please download PRN trained model first.")
             exit()
-        self.pos_predictor.restore(sess, prn_path)
+        self.pos_predictor.restore(sess, prn_path, filter_vars)
 
     def get_landmarks(self):
         '''
@@ -73,10 +74,25 @@ if __name__ == '__main__':
     detector = LandmarkDetector(imgs)
     with tf.Session() as sess:
         sess.run(tf.global_variables_initializer())
-        detector.restore(sess)
         landmarks = detector.get_landmarks()
+        detector.restore(sess)
+
+        pairs = [(1,17), (2,16), (3,15), (4,14), (5,13), (6,12), (7,11), (8,10)] # jawline
+        pairs.extend([(18,27), (19,26), (20,25), (21,24), (22,23)]) # eyebrows
+        pairs.extend([(37,46), (38,45), (39,44), (40,43), (41,48), (42,47)])  # eyes
+        pairs.extend([(32,36), (33,35)]) # mouth
+        pairs.extend([(49,55), (50,54), (51,53), (56,60), (57,59)]) # outer lip
+        pairs.extend([(61,65), (62,64), (66,68)]) # inner lip
+        pairs = np.asarray(pairs) - 1
+        left = tf.convert_to_tensor(pairs[:,0])
+        right = tf.convert_to_tensor(pairs[:,1])
+ 
+
         L = np.asarray(sess.run(landmarks))
-        for i in range(68):
+        Lp = tf.transpose(landmarks, perm=[1,0,2])
+        Lp = tf.gather(Lp, left)
+        Lp = tf.transpose(Lp, perm=[1,0,2])
+        for i in range(48,60):
             cv2.circle(img1, tuple(L[0,i,:2]), 2, (255,0,0), -1)
             cv2.circle(img2, tuple(L[1,i,:2]), 2, (255,0,0), -1)
 
