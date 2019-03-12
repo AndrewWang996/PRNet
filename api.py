@@ -53,7 +53,7 @@ class LandmarkDetector:
         pos = tf.transpose(pos, perm=[2,1,0,3]) # (256,256,?,3)
         kpt = tf.gather_nd(pos, self.uv_kpt_ind)
         kpt = tf.transpose(kpt, perm=[1,0,2]) # (?,68,3)
-        return kpt
+        return kpt[:,:,:2]
 
 if __name__ == '__main__':
     import cv2
