@@ -10,20 +10,30 @@ from predictor import PosPrediction
 class LandmarkDetector:
     ''' Joint 3D Face Reconstruction and Dense Alignment with Position Map Regression Network
     Args:
-        is_dlib(bool, optional): If true, dlib is used for detecting faces.
+        batch(tensor): batch of images
+        face_ratio(float): face bounding box length to image length ratio
         prefix(str, optional): If run at another folder, the absolute path is needed to load the data.
     '''
-    def __init__(self, batch, prefix = '.', gpu_memory_fraction=0.8):
+    def __init__(self, batch, face_ratio, prefix = '.', gpu_memory_fraction=0.8):
 
         # resolution of input and output image size.
         self.resolution_inp = 256 
         self.resolution_op = 160
         self.prefix = prefix
+        self.face_ratio = face_ratio
+        self.bbox_ratio = min(1.6 * face_ratio, 1.0) # 1.6 is a magic number when used during PRNet training
+
+
+        cropped_batch = tf.image.resize_images(
+            tf.image.central_crop(batch, self.bbox_ratio),    
+            (self.resolution_inp, self.resolution_inp)
+        )
 
         #---- load PRN 
         self.pos_predictor = PosPrediction(
-            batch, 
-            self.resolution_inp, self.resolution_op, 
+            cropped_batch,
+            self.resolution_inp, 
+            self.resolution_op * self.bbox_ratio, 
             gpu_memory_fraction=gpu_memory_fraction
         )
 
@@ -49,12 +59,13 @@ class LandmarkDetector:
         '''
         pos = self.pos_predictor.predict_batch()
 
-        # TODO: Implement without using tf.transpose
         pos = tf.transpose(pos, perm=[2,1,0,3]) # (256,256,?,3)
         kpt = tf.gather_nd(pos, self.uv_kpt_ind)
         kpt = tf.transpose(kpt, perm=[1,0,2]) # (?,68,3)
-        # return kpt[:,:,:2]
-        return kpt
+
+        # dx: margin between face crop bbox and image edges
+        dx = (self.resolution_op - self.resolution_op * self.bbox_ratio) / 2.
+        return kpt + [dx, dx, 0]
 
 if __name__ == '__main__':
     import cv2
